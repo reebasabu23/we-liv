@@ -22,6 +22,27 @@ const middlewares = jsonServer.defaults();
 server.use(express.json());
 server.use(middlewares);
 
+// Sync custom IDs to 'id' for json-server routing compatibility
+server.use((req, res, next) => {
+  const db = router.db.value();
+  if (db.users) {
+    db.users.forEach(u => {
+      if (u.userId !== undefined) u.id = u.userId;
+    });
+  }
+  if (db.properties) {
+    db.properties.forEach(p => {
+      if (p.propertyId !== undefined) p.id = p.propertyId;
+    });
+  }
+  if (db.interestRequests) {
+    db.interestRequests.forEach(r => {
+      if (r.interestRequestId !== undefined) r.id = r.interestRequestId;
+    });
+  }
+  next();
+});
+
 // Middleware to log requests
 server.use((req, res, next) => {
   console.log(`${req.method} ${req.url}`);
