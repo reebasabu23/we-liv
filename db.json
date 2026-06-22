@@ -401,22 +401,7 @@
     }
   ],
   "chatMessages": [
-    {
-      "type": "message:deliver",
-      "matchId": 2,
-      "senderId": 4,
-      "body": "Hi, I'm good. How are you??",
-      "sequence": 4,
-      "createdAtEpochMs": 1780245528383
-    },
-    {
-      "type": "message:deliver",
-      "matchId": 2,
-      "senderId": 17,
-      "body": "How are you??",
-      "sequence": 3,
-      "createdAtEpochMs": 1780245406271
-    },
+  
     {
       "type": "message:deliver",
       "matchId": 2,
