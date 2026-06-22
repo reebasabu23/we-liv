@@ -40,6 +40,11 @@ server.use((req, res, next) => {
       if (r.interestRequestId !== undefined) r.id = r.interestRequestId;
     });
   }
+  if (db.chatMessages) {
+    db.chatMessages.forEach((m, index) => {
+      if (m.id === undefined) m.id = index + 1;
+    });
+  }
   next();
 });
 
