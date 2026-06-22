@@ -6,6 +6,17 @@ const path = require('path');
 
 const server = express();
 const router = jsonServer.router(path.join(__dirname, 'db.json'));
+
+// Override db.write globally to prevent crashes on read-only environments like Vercel
+const originalWrite = router.db.write;
+router.db.write = function () {
+  try {
+    originalWrite.call(router.db);
+  } catch (err) {
+    console.warn("Database file write skipped (running on a read-only filesystem like Vercel):", err.message);
+  }
+};
+
 const middlewares = jsonServer.defaults();
 
 server.use(express.json());
