@@ -17,6 +17,15 @@ server.use((req, res, next) => {
   next();
 });
 
+// Safe database write function for read-only filesystems (e.g., Vercel)
+const safeWrite = () => {
+  try {
+    router.db.write();
+  } catch (err) {
+    console.warn("Database write skipped (running on a read-only filesystem like Vercel):", err.message);
+  }
+};
+
 // POST /users/signup (or /signup alias)
 server.post(['/users/signup', '/signup'], (req, res) => {
   const { userDto, roomSeekerDto, roomOwnerDto, userRole } = req.body;
@@ -80,13 +89,15 @@ server.post(['/users/signup', '/signup'], (req, res) => {
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString()
         };
-        router.db.get('properties').push(newProperty).write();
+        router.db.get('properties').push(newProperty);
+        safeWrite();
       });
     }
   }
 
   // Persist user
-  router.db.get('users').push(newUser).write();
+  router.db.get('users').push(newUser);
+  safeWrite();
 
   // Generate Response
   const responseUserDto = {
@@ -197,7 +208,8 @@ server.post('/interest/request/create', (req, res) => {
     status: status || 'PENDING'
   };
 
-  router.db.get('interestRequests').push(newRequest).write();
+  router.db.get('interestRequests').push(newRequest);
+  safeWrite();
   res.status(201).json(newRequest);
 });
 
@@ -310,7 +322,8 @@ wsServer.on('connection', (socket) => {
         };
 
         // Save to db.json
-        router.db.get('chatMessages').push(newMessage).write();
+        router.db.get('chatMessages').push(newMessage);
+        safeWrite();
 
         // Broadcast to all connected clients
         const payload = JSON.stringify(newMessage);
