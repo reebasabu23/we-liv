@@ -191,6 +191,76 @@ server.post(['/users/signup', '/signup'], (req, res) => {
   }
 });
 
+// POST /users/login
+server.post(['/users/login', '/login'], (req, res) => {
+  const { email, password } = req.body;
+
+  if (!email || !password) {
+    return res.status(400).json({ message: "Email and password are required" });
+  }
+
+  // Find user by email and password
+  const user = router.db.get('users').find({ email, password }).value();
+
+  if (!user) {
+    return res.status(401).json({ message: "Invalid email or password" });
+  }
+
+  // Generate Response DTO
+  const responseUserDto = {
+    userId: user.userId,
+    firstName: user.firstName,
+    lastName: user.lastName,
+    email: user.email,
+    password: null,
+    gender: user.gender,
+    dateOfBirth: user.dateOfBirth,
+    phone: user.phone,
+    profilePictureURL: user.profilePictureURL || null
+  };
+
+  const dummyToken = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJyb29uaUBleGFtcGxlLmNvbSIsImlhdCI6MTc4MDI2NzM4Mn0.SpXwye3M0VGC6l52u_mgbAEGFmXSOcm-5STyGYan2JA";
+
+  if (user.userRole === 'ROOM_SEEKER') {
+    const allProperties = router.db.get('properties').value() || [];
+    res.status(200).json({
+      token: dummyToken,
+      message: "Successfully logged in",
+      userDto: responseUserDto,
+      propertyDtos: allProperties,
+      roomSeekerDtos: []
+    });
+  } else {
+    // Return all room seekers in database
+    const allSeekers = (router.db.get('users').value() || [])
+      .filter(u => u.userRole === 'ROOM_SEEKER')
+      .map(u => ({
+        name: `${u.firstName} ${u.lastName}`,
+        bio: u.bio || "",
+        postCode: u.postCode || null,
+        location: null,
+        budget: u.budget || null,
+        occupation: u.occupation || "",
+        roomTypePreference: u.roomTypePreference || "",
+        furniturePreference: u.furniturePreference || "",
+        smokingPreference: u.smokingPreference || "",
+        petPreference: u.petPreference || "",
+        genderPreference: u.genderPreference || "",
+        socialPreference: u.socialPreference || "",
+        userInterestsDtos: u.userInterestsDtos || null,
+        userSocialLinksDtos: u.userSocialLinksDtos || null
+      }));
+
+    res.status(200).json({
+      token: dummyToken,
+      message: "Successfully logged in",
+      userDto: responseUserDto,
+      propertyDtos: [],
+      roomSeekerDtos: allSeekers
+    });
+  }
+});
+
 // GET /property/filter/by/values
 server.get('/property/filter/by/values', (req, res) => {
   let properties = router.db.get('properties').value() || [];
