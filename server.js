@@ -128,6 +128,16 @@ server.use((req, res, next) => {
   next();
 });
 
+// Secure endpoint to check if environment variables are active on Vercel
+server.get('/debug-env', (req, res) => {
+  res.json({
+    JSONBIN_BIN_ID_exists: !!process.env.JSONBIN_BIN_ID,
+    JSONBIN_BIN_ID_value: process.env.JSONBIN_BIN_ID || null,
+    JSONBIN_API_KEY_exists: !!process.env.JSONBIN_API_KEY,
+    JSONBIN_API_KEY_value: process.env.JSONBIN_API_KEY ? process.env.JSONBIN_API_KEY.substring(0, 8) + '...' : null
+  });
+});
+
 // Safe database write function for read-only filesystems (e.g., Vercel)
 const safeWrite = () => {
   router.db.write();
