@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require('express');
 const jsonServer = require('json-server');
 const ws = require('ws');
@@ -15,7 +16,63 @@ router.db.write = function () {
   } catch (err) {
     console.warn("Database file write skipped (running on a read-only filesystem like Vercel):", err.message);
   }
+
+  // Sync to JSONBin
+  const binId = process.env.JSONBIN_BIN_ID;
+  const apiKey = process.env.JSONBIN_API_KEY;
+  if (binId && apiKey && binId !== 'YOUR_BIN_ID_HERE') {
+    const dbState = router.db.getState();
+    fetch(`https://api.jsonbin.io/v3/b/${binId}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Master-Key': apiKey
+      },
+      body: JSON.stringify(dbState)
+    })
+    .then(response => {
+      if (response.ok) {
+        console.log("Successfully synced database to remote JSONBin!");
+      } else {
+        return response.text().then(errorText => {
+          console.error("Failed to sync database to remote JSONBin. Error:", errorText);
+        });
+      }
+    })
+    .catch(err => {
+      console.error("Error syncing database to remote JSONBin:", err.message);
+    });
+  }
 };
+
+// Function to load remote database or fallback to local db.json
+async function initDatabase() {
+  const binId = process.env.JSONBIN_BIN_ID;
+  const apiKey = process.env.JSONBIN_API_KEY;
+
+  if (binId && apiKey && binId !== 'YOUR_BIN_ID_HERE') {
+    console.log("Fetching database from JSONBin...");
+    try {
+      const response = await fetch(`https://api.jsonbin.io/v3/b/${binId}?meta=false`, {
+        headers: {
+          'X-Master-Key': apiKey
+        }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        router.db.setState(data);
+        console.log("Successfully loaded remote database from JSONBin!");
+      } else {
+        const errorText = await response.text();
+        console.error("Failed to load remote database, using local db.json fallback. Error:", errorText);
+      }
+    } catch (err) {
+      console.error("Error connecting to JSONBin, using local db.json fallback:", err.message);
+    }
+  } else {
+    console.log("JSONBin credentials missing or placeholders. Using local db.json.");
+  }
+}
 
 const middlewares = jsonServer.defaults();
 
@@ -56,11 +113,7 @@ server.use((req, res, next) => {
 
 // Safe database write function for read-only filesystems (e.g., Vercel)
 const safeWrite = () => {
-  try {
-    router.db.write();
-  } catch (err) {
-    console.warn("Database write skipped (running on a read-only filesystem like Vercel):", err.message);
-  }
+  router.db.write();
 };
 
 // POST /users/signup (or /signup alias)
@@ -458,6 +511,11 @@ httpServer.on('upgrade', (request, socket, head) => {
   }
 });
 
-httpServer.listen(PORT, () => {
-  console.log(`WeLiv mock backend is running on http://localhost:${PORT}`);
-});
+// Initialize database first then start server
+async function start() {
+  await initDatabase();
+  httpServer.listen(PORT, () => {
+    console.log(`WeLiv mock backend is running on http://localhost:${PORT}`);
+  });
+}
+start();
