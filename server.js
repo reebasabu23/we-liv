@@ -8,6 +8,23 @@ const path = require('path');
 const server = express();
 const router = jsonServer.router(path.join(__dirname, 'db.json'));
 
+// Global promise to track active database sync operations
+let activeSyncPromise = Promise.resolve();
+
+// Middleware to delay sending the response until any active remote DB sync completes.
+// This is critical for serverless environments (like Vercel) where background execution is frozen once the response is sent.
+server.use((req, res, next) => {
+  const originalSend = res.send;
+  res.send = function (body) {
+    activeSyncPromise
+      .catch(() => {}) // Ignore sync errors so the API request itself doesn't hang or crash
+      .finally(() => {
+        originalSend.call(this, body);
+      });
+  };
+  next();
+});
+
 // Override db.write globally to prevent crashes on read-only environments like Vercel
 const originalWrite = router.db.write;
 router.db.write = function () {
@@ -22,7 +39,7 @@ router.db.write = function () {
   const apiKey = process.env.JSONBIN_API_KEY;
   if (binId && apiKey && binId !== 'YOUR_BIN_ID_HERE') {
     const dbState = router.db.getState();
-    fetch(`https://api.jsonbin.io/v3/b/${binId}`, {
+    activeSyncPromise = fetch(`https://api.jsonbin.io/v3/b/${binId}`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
