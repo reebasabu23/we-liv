@@ -8,8 +8,51 @@ const path = require('path');
 const server = express();
 const router = jsonServer.router(path.join(__dirname, 'db.json'));
 
+// Function to load remote database or fallback to local db.json
+async function initDatabase() {
+  const binId = process.env.JSONBIN_BIN_ID;
+  const apiKey = process.env.JSONBIN_API_KEY;
+
+  if (binId && apiKey && binId !== 'YOUR_BIN_ID_HERE') {
+    console.log("Fetching database from JSONBin...");
+    try {
+      const response = await fetch(`https://api.jsonbin.io/v3/b/${binId}?meta=false`, {
+        headers: {
+          'X-Master-Key': apiKey
+        }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        router.db.setState(data);
+        console.log("Successfully loaded remote database from JSONBin!");
+      } else {
+        const errorText = await response.text();
+        console.error("Failed to load remote database, using local db.json fallback. Error:", errorText);
+      }
+    } catch (err) {
+      console.error("Error connecting to JSONBin, using local db.json fallback:", err.message);
+    }
+  } else {
+    console.log("JSONBin credentials missing or placeholders. Using local db.json.");
+  }
+}
+
 // Global promise to track active database sync operations
 let activeSyncPromise = Promise.resolve();
+
+// Promise to track database load on startup
+let dbInitPromise = initDatabase();
+
+// Middleware to block requests until database initialization is complete.
+// This is critical for serverless environments (like Vercel) to prevent requests from being processed before the remote data loads.
+server.use(async (req, res, next) => {
+  try {
+    await dbInitPromise;
+  } catch (err) {
+    console.error("Database initialization failed, proceeding with local fallback:", err.message);
+  }
+  next();
+});
 
 // Middleware to delay sending the response until any active remote DB sync completes.
 // This is critical for serverless environments (like Vercel) where background execution is frozen once the response is sent.
@@ -62,34 +105,6 @@ router.db.write = function () {
   }
 };
 
-// Function to load remote database or fallback to local db.json
-async function initDatabase() {
-  const binId = process.env.JSONBIN_BIN_ID;
-  const apiKey = process.env.JSONBIN_API_KEY;
-
-  if (binId && apiKey && binId !== 'YOUR_BIN_ID_HERE') {
-    console.log("Fetching database from JSONBin...");
-    try {
-      const response = await fetch(`https://api.jsonbin.io/v3/b/${binId}?meta=false`, {
-        headers: {
-          'X-Master-Key': apiKey
-        }
-      });
-      if (response.ok) {
-        const data = await response.json();
-        router.db.setState(data);
-        console.log("Successfully loaded remote database from JSONBin!");
-      } else {
-        const errorText = await response.text();
-        console.error("Failed to load remote database, using local db.json fallback. Error:", errorText);
-      }
-    } catch (err) {
-      console.error("Error connecting to JSONBin, using local db.json fallback:", err.message);
-    }
-  } else {
-    console.log("JSONBin credentials missing or placeholders. Using local db.json.");
-  }
-}
 
 const middlewares = jsonServer.defaults();
 
