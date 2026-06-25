@@ -83,6 +83,8 @@ router.db.write = function () {
   console.log(`[Sync Debug] binId exists: ${!!binId}, apiKey exists: ${!!apiKey}, isPlaceholder: ${binId === 'YOUR_BIN_ID_HERE'}`);
   if (binId && apiKey && binId !== 'YOUR_BIN_ID_HERE') {
     const dbState = router.db.getState();
+    console.log(`[Sync Debug] Users count in getState(): ${dbState.users ? dbState.users.length : 'undefined'}`);
+    console.log(`[Sync Debug] Last user in getState(): ${dbState.users && dbState.users.length ? JSON.stringify(dbState.users[dbState.users.length - 1]) : 'none'}`);
     console.log(`[Sync Debug] Starting remote PUT request to JSONBin...`);
     activeSyncPromise = fetch(`https://api.jsonbin.io/v3/b/${binId}`, {
       method: 'PUT',
