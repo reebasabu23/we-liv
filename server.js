@@ -80,8 +80,10 @@ router.db.write = function () {
   // Sync to JSONBin
   const binId = process.env.JSONBIN_BIN_ID;
   const apiKey = process.env.JSONBIN_API_KEY;
+  console.log(`[Sync Debug] binId exists: ${!!binId}, apiKey exists: ${!!apiKey}, isPlaceholder: ${binId === 'YOUR_BIN_ID_HERE'}`);
   if (binId && apiKey && binId !== 'YOUR_BIN_ID_HERE') {
     const dbState = router.db.getState();
+    console.log(`[Sync Debug] Starting remote PUT request to JSONBin...`);
     activeSyncPromise = fetch(`https://api.jsonbin.io/v3/b/${binId}`, {
       method: 'PUT',
       headers: {
@@ -91,6 +93,7 @@ router.db.write = function () {
       body: JSON.stringify(dbState)
     })
     .then(response => {
+      console.log(`[Sync Debug] PUT request finished with HTTP Status: ${response.status}`);
       if (response.ok) {
         console.log("Successfully synced database to remote JSONBin!");
       } else {
